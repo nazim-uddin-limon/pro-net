@@ -1,56 +1,41 @@
-import { User, CreateUserInput, UpdateUserInput } from "../../types/index.js";
-import crypto from "crypto";
+import { User, IUser } from "./userModel.js";
+import { CreateUserInput, UpdateUserInput } from "../../types/index.js";
+import { hashPassword, verifyPassword } from "../../utils/password.js";
 
-const users: Map<string, User> = new Map();
-
-const generateId = () => crypto.randomUUID();
-
-export const createUser = (input: CreateUserInput): User => {
-  const user: User = {
-    id: generateId(),
-    email: input.email,
-    passwordHash: input.password ? hashPassword(input.password) : null,
-    name: input.name,
-    headline: null,
-    bio: null,
-    avatarUrl: null,
-    bannerUrl: null,
-    location: null,
-    website: null,
-    openToWork: false,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
-  users.set(user.id, user);
-  return user;
+export const createUser = async (input: CreateUserInput): Promise<IUser> => {
+  const user = new User({
+    ...input,
+    passwordHash: input.password ? await hashPassword(input.password) : null,
+  });
+  return user.save();
 };
 
-export const findById = (id: string): User | undefined => {
-  return users.get(id);
+export const findById = async (id: string): Promise<IUser | null> => {
+  return User.findById(id).exec();
 };
 
-export const findByEmail = (email: string): User | undefined => {
-  return Array.from(users.values()).find((u) => u.email === email);
+export const findByEmail = async (email: string): Promise<IUser | null> => {
+  return User.findOne({ email: email.toLowerCase() }).exec();
 };
 
-export const findByUsername = (username: string): User | undefined => {
-  return Array.from(users.values()).find((u) => u.name.toLowerCase() === username.toLowerCase());
+export const findByUsername = async (username: string): Promise<IUser | null> => {
+  return User.findOne({ name: { $regex: new RegExp(`^${username}$`, "i") } }).exec();
 };
 
-export const update = (id: string, input: UpdateUserInput): User => {
-  const user = users.get(id);
-  if (!user) throw new Error("User not found");
-  const updated = { ...user, ...input, updatedAt: new Date() };
-  users.set(id, updated);
-  return updated;
+export const update = async (id: string, input: UpdateUserInput): Promise<IUser | null> => {
+  return User.findByIdAndUpdate(id, { $set: input }, { new: true, runValidators: true }).exec();
 };
 
-export const listUsers = (page = 1, limit = 20): User[] => {
-  const all = Array.from(users.values());
-  const start = (page - 1) * limit;
-  return all.slice(start, start + limit);
+export const listUsers = async (page = 1, limit = 20): Promise<IUser[]> => {
+  return User.find()
+    .skip((page - 1) * limit)
+    .limit(limit)
+    .sort({ createdAt: -1 })
+    .exec();
 };
 
-const hashPassword = (password: string): string => {
-  return crypto.createHash("sha256").update(password).digest("hex");
+export const deleteById = async (id: string): Promise<IUser | null> => {
+  return User.findByIdAndDelete(id).exec();
 };
+
+export { verifyPassword };
