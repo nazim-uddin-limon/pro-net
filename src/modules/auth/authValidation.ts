@@ -1,4 +1,4 @@
-import { body, ValidationChain } from "express-validator";
+import { body, cookie, ValidationChain } from "express-validator";
 
 export const registerValidation: ValidationChain[] = [
   body("email")
@@ -39,13 +39,13 @@ export const loginValidation: ValidationChain[] = [
 ];
 
 export const refreshTokenValidation: ValidationChain[] = [
-  body("refreshToken")
+  cookie("refresh_token")
     .notEmpty()
     .withMessage("Refresh token is required"),
 ];
 
 export const logoutValidation: ValidationChain[] = [
-  body("refreshToken")
+  body("refresh_token")
     .optional()
     .notEmpty()
     .withMessage("Refresh token cannot be empty if provided"),

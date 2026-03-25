@@ -13,6 +13,14 @@ const getIpAddress = (req: Request): string => {
          "Unknown";
 };
 
+const getRefreshTokenFromCookie = (req: Request): string | undefined => {
+  const cookies = req.headers.cookie;
+  if (!cookies) return undefined;
+  
+  const match = cookies.match(/refresh_token=([^;]+)/);
+  return match ? match[1] : undefined;
+};
+
 export const register = async (req: Request, res: Response) => {
   const { email, password, name } = req.body;
   
@@ -24,6 +32,13 @@ export const register = async (req: Request, res: Response) => {
     getIpAddress(req)
   );
   
+  res.cookie("refresh_token", result.tokens.refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+  
   res.status(201).json({
     message: "Registration successful",
     data: {
@@ -32,8 +47,7 @@ export const register = async (req: Request, res: Response) => {
         email: result.user.email,
         name: result.user.name,
       },
-      ...result.tokens,
-      session: result.session,
+      accessToken: result.tokens.accessToken,
     },
   });
 };
@@ -49,6 +63,13 @@ export const login = async (req: Request, res: Response) => {
     singleDevice !== false
   );
   
+  res.cookie("refresh_token", result.tokens.refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+  
   res.json({
     message: "Login successful",
     data: {
@@ -57,14 +78,13 @@ export const login = async (req: Request, res: Response) => {
         email: result.user.email,
         name: result.user.name,
       },
-      ...result.tokens,
-      session: result.session,
+      accessToken: result.tokens.accessToken,
     },
   });
 };
 
 export const refresh = async (req: Request, res: Response) => {
-  const { refreshToken } = req.body;
+  const refreshToken = getRefreshTokenFromCookie(req);
   
   if (!refreshToken) {
     throw new UnauthorizedError("Refresh token is required");
@@ -72,18 +92,29 @@ export const refresh = async (req: Request, res: Response) => {
   
   const tokens = await authService.refreshTokens(refreshToken);
   
+  res.cookie("refresh_token", tokens.refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+  
   res.json({
     message: "Tokens refreshed",
-    data: tokens,
+    data: {
+      accessToken: tokens.accessToken,
+    },
   });
 };
 
 export const logout = async (req: Request, res: Response) => {
-  const { refreshToken } = req.body;
+  const refreshToken = getRefreshTokenFromCookie(req);
   
   if (refreshToken) {
     await authService.logout(refreshToken);
   }
+  
+  res.clearCookie("refresh_token");
   
   res.json({
     message: "Logged out successfully",
@@ -93,6 +124,8 @@ export const logout = async (req: Request, res: Response) => {
 export const logoutAllDevices = async (req: Request, res: Response) => {
   const userId = (req as any).userId;
   const count = await authService.logoutAllDevices(userId);
+  
+  res.clearCookie("refresh_token");
   
   res.json({
     message: `Logged out from ${count} device(s)`,

@@ -1,7 +1,7 @@
 import { Route } from "../../app/route.js";
 import { register, login, refresh, logout, logoutAllDevices, getSessions, revokeSession } from "./authController.js";
-import { registerValidation, loginValidation, refreshTokenValidation } from "./authValidation.js";
-import { validate, asyncHandler } from "../../middleware/index.js";
+import { registerValidation, loginValidation } from "./authValidation.js";
+import { validate } from "../../middleware/index.js";
 import { authenticate } from "./authMiddleware.js";
 
 export const authRoutes: Route[] = [
@@ -21,7 +21,6 @@ export const authRoutes: Route[] = [
     method: "post",
     path: "/auth/refresh",
     handler: refresh,
-    middleware: [...refreshTokenValidation, validate],
   },
   {
     method: "post",
